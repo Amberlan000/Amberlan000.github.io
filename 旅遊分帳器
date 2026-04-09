@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>旅遊分帳器</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --purple-50: #EEEDFE; --purple-200: #AFA9EC; --purple-500: #534AB7; --purple-800: #3C3489;
+    --teal-50: #E1F5EE; --teal-600: #0F6E56;
+    --red-50: #FCEBEB; --red-600: #A32D2D;
+    --amber-50: #FAEEDA; --amber-800: #633806;
+    --pink-50: #FBEAF0; --pink-800: #72243E;
+    --gray-50: #F8F8F7; --gray-100: #F1EFE8; --gray-200: #D3D1C7;
+    --gray-500: #888780; --gray-800: #2C2C2A;
+    --radius-md: 8px; --radius-lg: 12px;
+    --font: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  }
+  body { font-family: var(--font); background: var(--gray-100); color: var(--gray-800); min-height: 100vh; }
+  .topbar { background: var(--purple-500); color: white; padding: 14px 20px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 10; }
+  .topbar h1 { font-size: 17px; font-weight: 500; }
+  .topbar .subtitle { font-size: 13px; opacity: 0.75; margin-left: auto; }
+  .container { max-width: 720px; margin: 0 auto; padding: 16px; }
+
+  /* ── API 設定 ── */
+  .api-banner { background: #FAEEDA; border: 0.5px solid #EF9F27; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #633806; display: flex; align-items: center; gap: 10px; }
+  .api-banner input { flex: 1; height: 32px; padding: 0 10px; font-size: 13px; border: 0.5px solid #EF9F27; border-radius: 6px; background: white; color: var(--gray-800); }
+  .api-banner button { height: 32px; padding: 0 14px; background: var(--purple-500); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+
+  /* ── 卡片 ── */
+  .card { background: white; border: 0.5px solid var(--gray-200); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 12px; }
+  .section-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gray-500); margin-bottom: 12px; }
+
+  /* ── 表單 ── */
+  .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+  .form-group label { font-size: 12px; color: var(--gray-500); }
+  input[type=text], input[type=number], select {
+    height: 38px; padding: 0 12px; border: 0.5px solid var(--gray-200);
+    border-radius: var(--radius-md); font-size: 14px; color: var(--gray-800);
+    background: var(--gray-50); width: 100%;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus {
+    outline: none; border-color: var(--purple-200); background: white;
+  }
+  .members-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 20px;
+    border: 0.5px solid var(--gray-200); cursor: pointer; font-size: 13px;
+    color: var(--gray-500); background: var(--gray-50); user-select: none; transition: all 0.12s; }
+  .chip.on { background: var(--purple-50); border-color: var(--purple-200); color: var(--purple-800); font-weight: 500; }
+  .btn-add { height: 38px; padding: 0 20px; background: var(--purple-500); color: white;
+    border: none; border-radius: var(--radius-md); font-size: 14px; cursor: pointer;
+    transition: background 0.12s; }
+  .btn-add:hover { background: var(--purple-800); }
+  .btn-add:disabled { background: var(--gray-200); cursor: not-allowed; }
+
+  /* ── Tab 切換 ── */
+  .tabs { display: flex; background: var(--gray-100); border-radius: var(--radius-md); padding: 3px; margin-bottom: 16px; gap: 2px; }
+  .tab-btn { flex: 1; height: 34px; border: none; border-radius: 6px; font-size: 13px;
+    cursor: pointer; background: none; color: var(--gray-500); transition: all 0.12s; }
+  .tab-btn.active { background: white; color: var(--gray-800); font-weight: 500;
+    border: 0.5px solid var(--gray-200); }
+
+  /* ── 費用列表 ── */
+  .exp-item { display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 0.5px solid var(--gray-100); }
+  .exp-item:last-child { border-bottom: none; }
+  .exp-name { font-size: 14px; font-weight: 500; }
+  .exp-meta { font-size: 12px; color: var(--gray-500); margin-top: 3px; }
+  .exp-right { display: flex; align-items: center; gap: 14px; }
+  .exp-amount { font-size: 15px; font-weight: 500; }
+  .del-btn { background: none; border: none; color: var(--gray-200); font-size: 16px;
+    cursor: pointer; padding: 4px; line-height: 1; transition: color 0.1s; }
+  .del-btn:hover { color: var(--red-600); }
+
+  /* ── 摘要卡 ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat { background: var(--gray-100); border-radius: var(--radius-md); padding: 12px 14px; }
+  .stat-l { font-size: 11px; color: var(--gray-500); margin-bottom: 4px; }
+  .stat-v { font-size: 20px; font-weight: 500; }
+
+  /* ── 轉帳表 ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 500; color: var(--gray-500); padding: 6px 10px;
+    border-bottom: 0.5px solid var(--gray-100); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 10px 10px; border-bottom: 0.5px solid var(--gray-100); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .amt-owe { color: var(--red-600); font-weight: 500; }
+  .amt-recv { color: var(--teal-600); font-weight: 500; }
+  .amt-purple { color: var(--purple-800); font-weight: 500; }
+
+  /* ── 個人選擇 ── */
+  .person-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .person-tab { padding: 8px 16px; border-radius: 20px; border: 0.5px solid var(--gray-200);
+    cursor: pointer; font-size: 13px; background: var(--gray-50); color: var(--gray-500); }
+  .person-tab.on { border-width: 1.5px; font-weight: 500; }
+
+  /* ── 頭像 ── */
+  .avatar { width: 24px; height: 24px; border-radius: 50%; display: inline-flex;
+    align-items: center; justify-content: center; font-size: 10px; font-weight: 600;
+    vertical-align: middle; margin-right: 4px; flex-shrink: 0; }
+
+  /* ── 狀態 ── */
+  .empty { text-align: center; padding: 28px; color: var(--gray-500); font-size: 14px; }
+  .loading { text-align: center; padding: 28px; color: var(--gray-500); font-size: 14px; }
+  .success-note { background: var(--teal-50); color: var(--teal-600); padding: 12px 16px;
+    border-radius: var(--radius-md); font-size: 13px; text-align: center; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--gray-200);
+    border-top-color: var(--purple-500); border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 500px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .form-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>✈️ 旅遊分帳器</h1>
+  <span class="subtitle" id="memberNames">萌姐・翠姐・妍姐・Melody</span>
+</div>
+
+<div class="container">
+
+  <!-- API 設定 -->
+  <div class="api-banner" id="apiBanner">
+    <span>🔗 填入 Apps Script 部署網址：</span>
+    <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/..." />
+    <button onclick="saveApiUrl()">確認</button>
+  </div>
+
+  <!-- 新增費用表單 -->
+  <div class="card">
+    <div class="section-label">新增費用</div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2; min-width:160px;">
+        <label>項目名稱</label>
+        <input type="text" id="fName" placeholder="例：晚餐、計程車…" />
+      </div>
+      <div class="form-group" style="min-width:110px;">
+        <label>金額（元）</label>
+        <input type="number" id="fAmt" placeholder="0" min="0" step="1" />
+      </div>
+      <div class="form-group" style="min-width:110px;">
+        <label>付款人</label>
+        <select id="fPayer">
+          <option>萌姐</option><option>翠姐</option><option>妍姐</option><option>Melody</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:8px;">分攤成員</div>
+      <div class="members-row" id="memberChips">
+        <div class="chip on" data-m="萌姐" onclick="toggleChip(this)">萌姐</div>
+        <div class="chip on" data-m="翠姐" onclick="toggleChip(this)">翠姐</div>
+        <div class="chip on" data-m="妍姐" onclick="toggleChip(this)">妍姐</div>
+        <div class="chip on" data-m="Melody" onclick="toggleChip(this)">Melody</div>
+      </div>
+    </div>
+    <button class="btn-add" id="addBtn" onclick="addExpense()">＋ 新增</button>
+    <span id="addStatus" style="font-size:13px;color:var(--gray-500);margin-left:12px;"></span>
+  </div>
+
+  <!-- Tab 列 -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('list',this)">費用明細</button>
+    <button class="tab-btn" onclick="switchTab('settle',this)">分帳結算</button>
+    <button class="tab-btn" onclick="switchTab('person',this)">個人明細</button>
+  </div>
+
+  <!-- Tab: 費用明細 -->
+  <div id="tab-list">
+    <div class="card" id="expListCard">
+      <div class="loading"><span class="spinner"></span>載入中…</div>
+    </div>
+  </div>
+
+  <!-- Tab: 分帳結算 -->
+  <div id="tab-settle" style="display:none;">
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="card">
+      <div class="section-label">轉帳建議</div>
+      <div id="transferTable"></div>
+    </div>
+    <div class="card" style="margin-top:12px;">
+      <div class="section-label">各人轉帳總額</div>
+      <div id="totalPerPerson"></div>
+    </div>
+  </div>
+
+  <!-- Tab: 個人明細 -->
+  <div id="tab-person" style="display:none;">
+    <div class="person-tabs" id="personTabs">
+      <div class="person-tab on" data-p="萌姐" onclick="selectPerson(this)">萌姐</div>
+      <div class="person-tab" data-p="翠姐" onclick="selectPerson(this)">翠姐</div>
+      <div class="person-tab" data-p="妍姐" onclick="selectPerson(this)">妍姐</div>
+      <div class="person-tab" data-p="Melody" onclick="selectPerson(this)">Melody</div>
+    </div>
+    <div id="personDetail"></div>
+  </div>
+
+</div>
+
+<script>
+const MEMBERS = ['萌姐','翠姐','妍姐','Melody'];
+const C = {
+  '萌姐':  {bg:'#EEEDFE',fg:'#3C3489'},
+  '翠姐':  {bg:'#E1F5EE',fg:'#085041'},
+  '妍姐':  {bg:'#FAEEDA',fg:'#633806'},
+  'Melody':{bg:'#FBEAF0',fg:'#72243E'},
+};
+
+let API_URL = localStorage.getItem('api_url') || '';
+let expenses = [];
+let currentPerson = '萌姐';
+let currentTab = 'list';
+
+// ── 頭像 ────────────────────────────────
+function av(name) {
+  const c = C[name] || {bg:'#eee',fg:'#333'};
+  return `<span class="avatar" style="background:${c.bg};color:${c.fg};">${name[0]}</span>`;
+}
+
+// ── API URL ──────────────────────────────
+window.onload = () => {
+  if (API_URL) {
+    document.getElementById('apiUrlInput').value = API_URL;
+    document.getElementById('apiBanner').style.background = '#E1F5EE';
+    document.getElementById('apiBanner').style.borderColor = '#5DCAA5';
+    document.getElementById('apiBanner').style.color = '#085041';
+  }
+  loadExpenses();
+  // 個人 tab 設定顏色
+  document.querySelectorAll('.person-tab').forEach(el => {
+    const p = el.dataset.p;
+    if (C[p]) {
+      el.style.background = C[p].bg;
+      el.style.borderColor = C[p].bg;
+      el.style.color = C[p].fg;
+    }
+  });
+};
+
+function saveApiUrl() {
+  const v = document.getElementById('apiUrlInput').value.trim();
+  if (!v) return;
+  API_URL = v;
+  localStorage.setItem('api_url', v);
+  const banner = document.getElementById('apiBanner');
+  banner.style.background = '#E1F5EE';
+  banner.style.borderColor = '#5DCAA5';
+  banner.style.color = '#085041';
+  loadExpenses();
+}
+
+// ── API 呼叫 ─────────────────────────────
+async function apiCall(action, body = {}) {
+  if (!API_URL) throw new Error('請先設定 API 網址');
+  const payload = { action, ...body };
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '操作失敗');
+  return data;
+}
+
+async function loadExpenses() {
+  if (!API_URL) {
+    document.getElementById('expListCard').innerHTML = '<div class="empty">請先填入 Apps Script 部署網址</div>';
+    return;
+  }
+  document.getElementById('expListCard').innerHTML = '<div class="loading"><span class="spinner"></span>載入中…</div>';
+  try {
+    const data = await apiCall('getAll');
+    expenses = data.data || [];
+    renderAll();
+  } catch (e) {
+    document.getElementById('expListCard').innerHTML = `<div class="empty">⚠️ 載入失敗：${e.message}</div>`;
+  }
+}
+
+async function addExpense() {
+  const name = document.getElementById('fName').value.trim();
+  const amount = parseFloat(document.getElementById('fAmt').value);
+  const payer = document.getElementById('fPayer').value;
+  const members = [...document.querySelectorAll('#memberChips .chip.on')].map(c => c.dataset.m);
+  if (!name) { alert('請輸入項目名稱'); return; }
+  if (!amount || amount <= 0) { alert('請輸入有效金額'); return; }
+  if (members.length === 0) { alert('請至少選一位分攤成員'); return; }
+
+  const btn = document.getElementById('addBtn');
+  const status = document.getElementById('addStatus');
+  btn.disabled = true;
+  status.innerHTML = '<span class="spinner"></span>儲存中…';
+
+  try {
+    const res = await apiCall('add', { name, amount, payer, members });
+    expenses.push({ id: res.id, name, amount, payer, members });
+    document.getElementById('fName').value = '';
+    document.getElementById('fAmt').value = '';
+    status.textContent = '✓ 已新增';
+    setTimeout(() => status.textContent = '', 2000);
+    renderAll();
+  } catch (e) {
+    status.textContent = '⚠️ ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteExpense(id) {
+  if (!confirm('確定刪除這筆費用？')) return;
+  try {
+    await apiCall('delete', { id });
+    expenses = expenses.filter(e => e.id !== id);
+    renderAll();
+  } catch (e) {
+    alert('刪除失敗：' + e.message);
+  }
+}
+
+// ── Chip 切換 ────────────────────────────
+function toggleChip(el) {
+  el.classList.toggle('on');
+}
+
+// ── Tab 切換 ─────────────────────────────
+function switchTab(tab, btn) {
+  ['list','settle','person'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===tab?'block':'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentTab = tab;
+  if (tab === 'settle') renderSettle();
+  if (tab === 'person') renderPerson();
+}
+
+// ── 渲染所有 ─────────────────────────────
+function renderAll() {
+  renderList();
+  if (currentTab === 'settle') renderSettle();
+  if (currentTab === 'person') renderPerson();
+}
+
+function renderList() {
+  const el = document.getElementById('expListCard');
+  if (expenses.length === 0) {
+    el.innerHTML = '<div class="empty">尚未新增費用，從上方表單開始記帳吧！</div>';
+    return;
+  }
+  el.innerHTML = expenses.map(e => `
+    <div class="exp-item">
+      <div>
+        <div class="exp-name">${e.name}</div>
+        <div class="exp-meta">${av(e.payer)}${e.payer} 付款 ・ 分攤：${e.members.join('、')}</div>
+      </div>
+      <div class="exp-right">
+        <div class="exp-amount">$${e.amount.toLocaleString()}</div>
+        <button class="del-btn" onclick="deleteExpense('${e.id}')" title="刪除">×</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── 計算邏輯 ─────────────────────────────
+function calcBalances() {
+  const paid = {}, owed = {};
+  MEMBERS.forEach(m => { paid[m] = 0; owed[m] = 0; });
+  expenses.forEach(e => {
+    paid[e.payer] += e.amount;
+    const share = e.amount / e.members.length;
+    e.members.forEach(m => { owed[m] += share; });
+  });
+  const net = {};
+  MEMBERS.forEach(m => { net[m] = paid[m] - owed[m]; });
+  return { paid, owed, net };
+}
+
+function calcTransfers() {
+  const { net } = calcBalances();
+  const creditors = [], debtors = [];
+  MEMBERS.forEach(m => {
+    if (net[m] > 0.5) creditors.push({ name: m, amount: net[m] });
+    else if (net[m] < -0.5) debtors.push({ name: m, amount: -net[m] });
+  });
+  const transfers = [];
+  const cs = creditors.map(c => ({...c}));
+  const ds = debtors.map(d => ({...d}));
+  let ci = 0, di = 0;
+  while (ci < cs.length && di < ds.length) {
+    const t = Math.min(cs[ci].amount, ds[di].amount);
+    if (t > 0.5) transfers.push({ from: ds[di].name, to: cs[ci].name, amount: Math.round(t) });
+    cs[ci].amount -= t; ds[di].amount -= t;
+    if (cs[ci].amount < 0.5) ci++;
+    if (ds[di].amount < 0.5) di++;
+  }
+  return transfers;
+}
+
+// ── 結算頁 ───────────────────────────────
+function renderSettle() {
+  const total = expenses.reduce((s,e) => s+e.amount, 0);
+  const { paid, owed, net } = calcBalances();
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat"><div class="stat-l">總支出</div><div class="stat-v">$${total.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-l">費用筆數</div><div class="stat-v">${expenses.length} 筆</div></div>
+    <div class="stat"><div class="stat-l">人均分攤</div><div class="stat-v">$${Math.round(total/4).toLocaleString()}</div></div>
+  `;
+  const transfers = calcTransfers();
+  const tt = document.getElementById('transferTable');
+  if (expenses.length === 0) { tt.innerHTML = '<div class="empty">新增費用後即可計算</div>'; return; }
+  if (transfers.length === 0) { tt.innerHTML = '<div class="success-note">✓ 大家都平衡了，不需要轉帳！</div>'; }
+  else {
+    tt.innerHTML = `<table>
+      <tr><th>付款人</th><th>收款人</th><th style="text-align:right;">金額</th></tr>
+      ${transfers.map(t=>`<tr>
+        <td>${av(t.from)}${t.from}</td>
+        <td>${av(t.to)}${t.to}</td>
+        <td class="amt-purple" style="text-align:right;">$${t.amount.toLocaleString()}</td>
+      </tr>`).join('')}
+    </table>`;
+  }
+  const totals = {};
+  transfers.forEach(t => { totals[t.from] = (totals[t.from]||0) + t.amount; });
+  const pp = document.getElementById('totalPerPerson');
+  if (Object.keys(totals).length === 0) {
+    pp.innerHTML = '<div class="success-note">✓ 不需要任何轉帳</div>';
+  } else {
+    pp.innerHTML = `<table>
+      <tr><th>成員</th><th style="text-align:right;">需轉出總額</th><th style="text-align:right;">轉給誰</th></tr>
+      ${Object.entries(totals).map(([k,v])=>{
+        const toNames = transfers.filter(t=>t.from===k).map(t=>`${av(t.to)}${t.to} $${t.amount.toLocaleString()}`).join('、');
+        return `<tr>
+          <td>${av(k)}${k}</td>
+          <td class="amt-owe" style="text-align:right;">$${v.toLocaleString()}</td>
+          <td style="text-align:right;font-size:12px;color:var(--gray-500);">${toNames}</td>
+        </tr>`;
+      }).join('')}
+    </table>`;
+  }
+}
+
+// ── 個人明細 ─────────────────────────────
+function selectPerson(el) {
+  document.querySelectorAll('.person-tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  currentPerson = el.dataset.p;
+  renderPerson();
+}
+
+function renderPerson() {
+  const p = currentPerson;
+  const { paid, owed, net } = calcBalances();
+  const transfers = calcTransfers();
+  const myExp = expenses.filter(e => e.members.includes(p));
+  const netAmt = net[p] || 0;
+  const netColor = netAmt >= 0 ? 'var(--teal-600)' : 'var(--red-600)';
+  const netLabel = netAmt >= 0 ? '應收回' : '需付出';
+
+  const el = document.getElementById('personDetail');
+
+  if (expenses.length === 0) {
+    el.innerHTML = '<div class="card"><div class="empty">尚未新增費用</div></div>'; return;
+  }
+
+  const myTransfers = transfers.filter(t => t.from===p||t.to===p);
+
+  el.innerHTML = `
+    <div class="stat-grid" style="margin-bottom:12px;">
+      <div class="stat"><div class="stat-l">我付了多少</div><div class="stat-v">$${Math.round(paid[p]||0).toLocaleString()}</div></div>
+      <div class="stat"><div class="stat-l">我的份額</div><div class="stat-v">$${Math.round(owed[p]||0).toLocaleString()}</div></div>
+      <div class="stat"><div class="stat-l">${netLabel}</div><div class="stat-v" style="color:${netColor};">$${Math.round(Math.abs(netAmt)).toLocaleString()}</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;">
+      <div class="section-label">參與的費用項目</div>
+      ${myExp.length===0?'<div class="empty">未參與任何費用</div>':`
+        <table>
+          <tr><th>項目</th><th>付款人</th><th style="text-align:right;">總金額</th><th style="text-align:right;">我的份額</th></tr>
+          ${myExp.map(e=>{
+            const share = Math.round(e.amount/e.members.length);
+            const isPayer = e.payer===p;
+            return `<tr>
+              <td>${e.name}</td>
+              <td>${av(e.payer)}${e.payer}</td>
+              <td style="text-align:right;">$${e.amount.toLocaleString()}</td>
+              <td style="text-align:right;" class="${isPayer?'amt-recv':'amt-owe'}">
+                $${share.toLocaleString()}${isPayer?' ✓':''}
+              </td>
+            </tr>`;
+          }).join('')}
+        </table>
+      `}
+    </div>
+
+    <div class="card">
+      <div class="section-label">轉帳明細</div>
+      ${myTransfers.length===0
+        ? '<div class="success-note">✓ 不需要任何轉帳</div>'
+        : `<table>
+            <tr><th>動作</th><th>對象</th><th style="text-align:right;">金額</th></tr>
+            ${myTransfers.map(t=>{
+              const isDebtor = t.from===p;
+              return `<tr>
+                <td style="color:${isDebtor?'var(--red-600)':'var(--teal-600)'};">${isDebtor?'付給':'收自'}</td>
+                <td>${av(isDebtor?t.to:t.from)}${isDebtor?t.to:t.from}</td>
+                <td style="text-align:right;" class="${isDebtor?'amt-owe':'amt-recv'}">
+                  ${isDebtor?'-':'+'} $${t.amount.toLocaleString()}
+                </td>
+              </tr>`;
+            }).join('')}
+          </table>`
+      }
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
