@@ -383,12 +383,14 @@ function calcBalances() {
   return { paid, owed, net };
 }
 
+function fmt(n) { return parseFloat(n.toFixed(2)); }
+
 function calcTransfers() {
   const { net } = calcBalances();
   const creditors = [], debtors = [];
   MEMBERS.forEach(m => {
-    if (net[m] > 0.5) creditors.push({ name: m, amount: net[m] });
-    else if (net[m] < -0.5) debtors.push({ name: m, amount: -net[m] });
+    if (net[m] > 0.005) creditors.push({ name: m, amount: net[m] });
+    else if (net[m] < -0.005) debtors.push({ name: m, amount: -net[m] });
   });
   const transfers = [];
   const cs = creditors.map(c => ({...c}));
@@ -396,10 +398,10 @@ function calcTransfers() {
   let ci = 0, di = 0;
   while (ci < cs.length && di < ds.length) {
     const t = Math.min(cs[ci].amount, ds[di].amount);
-    if (t > 0.5) transfers.push({ from: ds[di].name, to: cs[ci].name, amount: Math.round(t) });
+    if (t > 0.005) transfers.push({ from: ds[di].name, to: cs[ci].name, amount: fmt(t) });
     cs[ci].amount -= t; ds[di].amount -= t;
-    if (cs[ci].amount < 0.5) ci++;
-    if (ds[di].amount < 0.5) di++;
+    if (cs[ci].amount < 0.005) ci++;
+    if (ds[di].amount < 0.005) di++;
   }
   return transfers;
 }
@@ -409,9 +411,9 @@ function renderSettle() {
   const total = expenses.reduce((s,e) => s+e.amount, 0);
   const { paid, owed, net } = calcBalances();
   document.getElementById('statGrid').innerHTML = `
-    <div class="stat"><div class="stat-l">總支出</div><div class="stat-v">$${total.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-l">總支出</div><div class="stat-v">$${total.toFixed(2)}</div></div>
     <div class="stat"><div class="stat-l">費用筆數</div><div class="stat-v">${expenses.length} 筆</div></div>
-    <div class="stat"><div class="stat-l">人均分攤</div><div class="stat-v">$${Math.round(total/4).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-l">人均分攤</div><div class="stat-v">$${(total/4).toFixed(2)}</div></div>
   `;
   const transfers = calcTransfers();
   const tt = document.getElementById('transferTable');
@@ -423,7 +425,7 @@ function renderSettle() {
       ${transfers.map(t=>`<tr>
         <td>${av(t.from)}${t.from}</td>
         <td>${av(t.to)}${t.to}</td>
-        <td class="amt-purple" style="text-align:right;">$${t.amount.toLocaleString()}</td>
+        <td class="amt-purple" style="text-align:right;">$${t.amount.toFixed(2)}</td>
       </tr>`).join('')}
     </table>`;
   }
@@ -436,10 +438,10 @@ function renderSettle() {
     pp.innerHTML = `<table>
       <tr><th>成員</th><th style="text-align:right;">需轉出總額</th><th style="text-align:right;">轉給誰</th></tr>
       ${Object.entries(totals).map(([k,v])=>{
-        const toNames = transfers.filter(t=>t.from===k).map(t=>`${av(t.to)}${t.to} $${t.amount.toLocaleString()}`).join('、');
+        const toNames = transfers.filter(t=>t.from===k).map(t=>`${av(t.to)}${t.to} $${t.amount.toFixed(2)}`).join('、');
         return `<tr>
           <td>${av(k)}${k}</td>
-          <td class="amt-owe" style="text-align:right;">$${v.toLocaleString()}</td>
+          <td class="amt-owe" style="text-align:right;">$${v.toFixed(2)}</td>
           <td style="text-align:right;font-size:12px;color:var(--gray-500);">${toNames}</td>
         </tr>`;
       }).join('')}
@@ -474,9 +476,9 @@ function renderPerson() {
 
   el.innerHTML = `
     <div class="stat-grid" style="margin-bottom:12px;">
-      <div class="stat"><div class="stat-l">我付了多少</div><div class="stat-v">$${Math.round(paid[p]||0).toLocaleString()}</div></div>
-      <div class="stat"><div class="stat-l">我的份額</div><div class="stat-v">$${Math.round(owed[p]||0).toLocaleString()}</div></div>
-      <div class="stat"><div class="stat-l">${netLabel}</div><div class="stat-v" style="color:${netColor};">$${Math.round(Math.abs(netAmt)).toLocaleString()}</div></div>
+      <div class="stat"><div class="stat-l">我付了多少</div><div class="stat-v">$${(paid[p]||0).toFixed(2)}</div></div>
+      <div class="stat"><div class="stat-l">我的份額</div><div class="stat-v">$${(owed[p]||0).toFixed(2)}</div></div>
+      <div class="stat"><div class="stat-l">${netLabel}</div><div class="stat-v" style="color:${netColor};">$${Math.abs(netAmt).toFixed(2)}</div></div>
     </div>
 
     <div class="card" style="margin-bottom:12px;">
@@ -485,14 +487,14 @@ function renderPerson() {
         <table>
           <tr><th>項目</th><th>付款人</th><th style="text-align:right;">總金額</th><th style="text-align:right;">我的份額</th></tr>
           ${myExp.map(e=>{
-            const share = Math.round(e.amount/e.members.length);
+            const share = fmt(e.amount/e.members.length);
             const isPayer = e.payer===p;
             return `<tr>
               <td>${e.name}</td>
               <td>${av(e.payer)}${e.payer}</td>
-              <td style="text-align:right;">$${e.amount.toLocaleString()}</td>
+              <td style="text-align:right;">$${e.amount.toFixed(2)}</td>
               <td style="text-align:right;" class="${isPayer?'amt-recv':'amt-owe'}">
-                $${share.toLocaleString()}${isPayer?' ✓':''}
+                $${share.toFixed(2)}${isPayer?' ✓':''}
               </td>
             </tr>`;
           }).join('')}
@@ -512,7 +514,7 @@ function renderPerson() {
                 <td style="color:${isDebtor?'var(--red-600)':'var(--teal-600)'};">${isDebtor?'付給':'收自'}</td>
                 <td>${av(isDebtor?t.to:t.from)}${isDebtor?t.to:t.from}</td>
                 <td style="text-align:right;" class="${isDebtor?'amt-owe':'amt-recv'}">
-                  ${isDebtor?'-':'+'} $${t.amount.toLocaleString()}
+                  ${isDebtor?'-':'+'} $${t.amount.toFixed(2)}
                 </td>
               </tr>`;
             }).join('')}
